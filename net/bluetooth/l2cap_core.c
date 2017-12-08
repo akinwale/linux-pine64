@@ -3176,6 +3176,18 @@ done:
 
 	switch (chan->mode) {
 	case L2CAP_MODE_BASIC:
+		// https://github.com/ValveSoftware/steamlink-sdk/commit/d6afa93787217
+		/* HACK FOR XBOX ONE S CONTROLLERS
+		 * If we add options to the configuration request, the
+		 * Xbox One S controller responds with:
+		 *   Result: Failure - unknown options (0x0003)
+		 * For now, just don't send configuration options.
+		 * Remove this hack once the controller supports it
+		 */
+#if 0
+  		if (disable_ertm)
+			break;
+
 		if (!(chan->conn->feat_mask & L2CAP_FEAT_ERTM) &&
 		    !(chan->conn->feat_mask & L2CAP_FEAT_STREAMING))
 			break;
@@ -3189,6 +3201,7 @@ done:
 
 		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC, sizeof(rfc),
 				   (unsigned long) &rfc);
+#endif
 		break;
 
 	case L2CAP_MODE_ERTM:
@@ -4149,6 +4162,18 @@ static inline int l2cap_config_rsp(struct l2cap_conn *conn,
 				goto done;
 			break;
 		}
+
+	// https://marc.info/?l=linux-bluetooth&m=148051766420881&w=2
+        case L2CAP_CONF_UNKNOWN:
+		/* Ignore unkwown option for RFC in case of basic mode as it
+ 		 * is considered the default mode:
+ 	 	 * BLUETOOTH SPECIFICATION Version 4.2 [Vol 3, Part A] page 96:
+		 * The Basic L2CAP mode is the default.
+		 */
+		if (rsp->data == L2CAP_CONF_RFC &&
+		    chan->mode == L2CAP_MODE_BASIC) {
+			break;
+ 		}
 
 	default:
 		l2cap_chan_set_err(chan, ECONNRESET);
